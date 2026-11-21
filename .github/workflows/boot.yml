@@ -26,19 +26,20 @@ jobs:
         run: |
           (timeout 300 qemu-system-x86_64 -cpu max -m 2048 -kernel bootsatz/vmlinuz -initrd bootsatz/initramfs.img.gz -append "console=ttyS0,115200" -nographic -no-reboot </dev/null > boot.log 2>&1; touch boot.fertig) &
           QPID=$!
-          for t in $(seq 1 50); do
-            sleep 6
-            if grep -aq "Neugeboren\|Erinnerung geladen" boot.log 2>/dev/null; then
+          for t in $(seq 1 100); do
+            sleep 3
+            if grep -aq "Colorverse verwahrt" boot.log 2>/dev/null; then
               kill $QPID 2>/dev/null || true
-              echo "DER KEIM ATMET"
-              grep -a "Neugeboren\|Erinnerung geladen\|FARB-OS" boot.log | head -5
+              echo "DER KEIM ATMET - die Welt hat ihr Leben gefuehrt"
+              grep -aq "WELT_OK" boot.log || { echo "die Welt fehlte dem Boden (WELT-FEHLT)"; tail -40 boot.log; exit 1; }
+              grep -aq "BIN_OK" boot.log || { echo "Python fehlte dem Boden (BIN-FEHLT)"; tail -40 boot.log; exit 1; }
+              grep -a "Neugeboren\|Erinnerung geladen\|Erinnerung unbekannt\|KLANG\|DIALOG\|verwahrt" boot.log | head -20
               exit 0
             fi
             [ -f boot.fertig ] && break
           done
-          echo "kein Lebenszeichen auf der seriellen Linie"
-          tail -40 boot.log
-          ls -la bootsatz/
+          echo "die Welt verwahrte ihr Leben nicht (kein 'Colorverse verwahrt')"
+          tail -60 boot.log
           exit 1
 
   stock-atmet:
@@ -64,16 +65,18 @@ jobs:
         run: |
           (timeout 300 qemu-system-x86_64 -cpu max -m 2048 -drive if=none,id=stick,format=raw,readonly=on,file=bootsatz/bootsatz.iso -device qemu-xhci -device usb-storage,drive=stick -nographic -no-reboot </dev/null > stick.log 2>&1; touch stick.fertig) &
           QPID=$!
-          for t in $(seq 1 50); do
-            sleep 6
-            if grep -aq "Neugeboren\|Erinnerung geladen" stick.log 2>/dev/null; then
+          for t in $(seq 1 100); do
+            sleep 3
+            if grep -aq "Colorverse verwahrt" stick.log 2>/dev/null; then
               kill $QPID 2>/dev/null || true
-              echo "DER STICK ATMET"
-              grep -a "Neugeboren\|Erinnerung geladen\|FARB-OS\|GRUB" stick.log | head -5
+              echo "DER STICK ATMET - die Welt hat ihr Leben gefuehrt"
+              grep -aq "WELT_OK" stick.log || { echo "die Welt fehlte dem Boden (WELT-FEHLT)"; tail -40 stick.log; exit 1; }
+              grep -aq "BIN_OK" stick.log || { echo "Python fehlte dem Boden (BIN-FEHLT)"; tail -40 stick.log; exit 1; }
+              grep -a "Neugeboren\|Erinnerung geladen\|Erinnerung unbekannt\|KLANG\|DIALOG\|verwahrt" stick.log | head -20
               exit 0
             fi
             [ -f stick.fertig ] && break
           done
-          echo "kein Lebenszeichen vom Stick"
-          tail -40 stick.log
+          echo "die Welt verwahrte ihr Leben nicht (kein 'Colorverse verwahrt')"
+          tail -60 stick.log
           exit 1
