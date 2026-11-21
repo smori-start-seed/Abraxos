@@ -110,11 +110,12 @@ jobs:
           sudo mkfs.ext4 -F -L ABRAXOS boden_platte.raw
       - name: Erstes Leben - geboren auf der Platte, verwahrt auf der Platte
         run: |
-          ( exec timeout 300 qemu-system-x86_64 -cpu max -m 2048 -kernel bootsatz/vmlinuz -initrd bootsatz/initramfs.img.gz -append "console=ttyS0,115200 boden=PARTUUID=1a2b3c4d" -drive if=none,id=platte,format=raw,file=boden_platte.raw -device virtio-blk-pci,drive=platte -nographic -no-reboot </dev/null > leben1.log 2>&1; touch fertig1) &
+          ( exec timeout 300 qemu-system-x86_64 -cpu max -m 2048 -kernel bootsatz/vmlinuz -initrd bootsatz/initramfs.img.gz -append "console=ttyS0,115200 boden=PARTUUID=1a2b3c4d" -drive if=none,id=platte,format=raw,cache=writethrough,file=boden_platte.raw -device virtio-blk-pci,drive=platte -nographic -no-reboot </dev/null > leben1.log 2>&1; touch fertig1) &
           QPID=$!
           for t in $(seq 1 100); do
             sleep 3
             if grep -aq "Colorverse verwahrt" leben1.log 2>/dev/null; then
+              sleep 10
               kill $QPID 2>/dev/null || true
               echo "ERSTES LEBEN VOLLZogen"
               grep -a "Neugeboren\\|Erinnerung geladen\\|BODEN:\\|verwahrt" leben1.log | head -10
@@ -127,7 +128,7 @@ jobs:
           exit 1
       - name: Zweites Leben - die Erinnerung muss geladen werden
         run: |
-          ( exec timeout 300 qemu-system-x86_64 -cpu max -m 2048 -kernel bootsatz/vmlinuz -initrd bootsatz/initramfs.img.gz -append "console=ttyS0,115200 boden=PARTUUID=1a2b3c4d" -drive if=none,id=platte,format=raw,file=boden_platte.raw -device virtio-blk-pci,drive=platte -nographic -no-reboot </dev/null > leben2.log 2>&1; touch fertig2) &
+          ( exec timeout 300 qemu-system-x86_64 -cpu max -m 2048 -kernel bootsatz/vmlinuz -initrd bootsatz/initramfs.img.gz -append "console=ttyS0,115200 boden=PARTUUID=1a2b3c4d" -drive if=none,id=platte,format=raw,cache=writethrough,file=boden_platte.raw -device virtio-blk-pci,drive=platte -nographic -no-reboot </dev/null > leben2.log 2>&1; touch fertig2) &
           QPID=$!
           for t in $(seq 1 100); do
             sleep 3
