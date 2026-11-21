@@ -36,3 +36,9 @@ Wurzel gesamt, fertiges Medium - alles in MB.
 `BODEN_PARTUUID` in `config.py` setzen - die Welt lebt dann auf dieser
 Partition und erinnert sich ueber den Stromausfall. Ungesetzt atmet sie
 im RAM, ein Leben pro Strom.
+
+Das init schickt die noetigen Kernel-Module (ext4, virtio, usb_storage)
+mit und versucht zuerst den Weg ueber `/dev/disk/by-partuuid`, faellt
+danach auf die bekannten Geraetenamen zurueck. Die Bodenprobe
+(`erinnerung-bleibt`) beweist beide Leben: geboren und verwahrt auf der
+Platte, dann im zweiten Leben `Erinnerung geladen`.
