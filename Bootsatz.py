@@ -122,7 +122,10 @@ echo "[INIT] BODEN: $(grep -m1 ' /farb-os/home ' /proc/mounts | cut -d' ' -f1)${
 [ -e /lib64/ld-linux-x86-64.so.2 ] && echo [INIT] LDR_OK || echo [INIT] LDR_FEHLT
 [ -e /farb-os/os/farb_os.py ] && echo [INIT] WELT_OK || echo [INIT] WELT_FEHLT
 cd /farb-os/home
-exec /farb-os/python/bin/python3 -u /farb-os/os/farb_os.py
+/farb-os/python/bin/python3 -u /farb-os/os/farb_os.py
+echo "[INIT] Die Welt hat geatmet - Framework geht behutsam"
+sync
+poweroff -f
 """
 
 
