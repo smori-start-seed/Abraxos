@@ -110,7 +110,7 @@ jobs:
           sudo mkfs.ext4 -F -L ABRAXOS boden_platte.raw
       - name: Erstes Leben - geboren auf der Platte, verwahrt auf der Platte
         run: |
-          (timeout 300 qemu-system-x86_64 -cpu max -m 2048 -drive if=none,id=stick,format=raw,readonly=on,file=bootsatz/bootsatz.iso -device qemu-xhci -device usb-storage,drive=stick -drive if=none,id=platte,format=raw,file=boden_platte.raw -device virtio-blk-pci,drive=platte -nographic -no-reboot </dev/null > leben1.log 2>&1; touch fertig1) &
+          (timeout 300 qemu-system-x86_64 -cpu max -m 2048 -kernel bootsatz/vmlinuz -initrd bootsatz/initramfs.img.gz -append "console=ttyS0,115200 boden=PARTUUID=1a2b3c4d" -drive if=none,id=platte,format=raw,file=boden_platte.raw -device virtio-blk-pci,drive=platte -nographic -no-reboot </dev/null > leben1.log 2>&1; touch fertig1) &
           QPID=$!
           for t in $(seq 1 100); do
             sleep 3
@@ -127,7 +127,7 @@ jobs:
           exit 1
       - name: Zweites Leben - die Erinnerung muss geladen werden
         run: |
-          (timeout 300 qemu-system-x86_64 -cpu max -m 2048 -drive if=none,id=stick,format=raw,readonly=on,file=bootsatz/bootsatz.iso -device qemu-xhci -device usb-storage,drive=stick -drive if=none,id=platte,format=raw,file=boden_platte.raw -device virtio-blk-pci,drive=platte -nographic -no-reboot </dev/null > leben2.log 2>&1; touch fertig2) &
+          (timeout 300 qemu-system-x86_64 -cpu max -m 2048 -kernel bootsatz/vmlinuz -initrd bootsatz/initramfs.img.gz -append "console=ttyS0,115200 boden=PARTUUID=1a2b3c4d" -drive if=none,id=platte,format=raw,file=boden_platte.raw -device virtio-blk-pci,drive=platte -nographic -no-reboot </dev/null > leben2.log 2>&1; touch fertig2) &
           QPID=$!
           for t in $(seq 1 100); do
             sleep 3
