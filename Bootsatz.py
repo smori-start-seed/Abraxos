@@ -53,6 +53,36 @@ def kerne():
     return sorted(gefundene, reverse=True)
 
 
+def _module_saehen(wurzel, kernel):
+    kver = os.path.basename(kernel)
+    if not kver.startswith("vmlinuz-"):
+        return 0
+    kver = kver[len("vmlinuz-"):]
+    quelle_basis = os.path.join("/lib/modules", kver)
+    if not os.path.isdir(quelle_basis):
+        return 0
+    ziel_basis = os.path.join(wurzel, "lib", "modules", kver)
+    kopie = 0
+    for name in ("ext4", "jbd2", "crc32c_generic", "usb_storage", "uas",
+                 "sd_mod", "scsi_mod", "virtio", "virtio_pci", "virtio_blk"):
+        gefunden = glob.glob(os.path.join(quelle_basis, "kernel", "**", name + ".ko*"), recursive=True)
+        if gefunden:
+            ziel = os.path.join(ziel_basis, os.path.relpath(gefunden[0], quelle_basis))
+            os.makedirs(os.path.dirname(ziel), exist_ok=True)
+            shutil.copy2(gefunden[0], ziel)
+            kopie += 1
+    for treffen in ("modules.builtin", "modules.order", "modules.builtin.modinfo"):
+        quelle = os.path.join(quelle_basis, treffen)
+        if os.path.exists(quelle):
+            shutil.copy2(quelle, os.path.join(ziel_basis, treffen))
+    if kopie and shutil.which("depmod"):
+        try:
+            _lauf(["depmod", "-b", wurzel, kver])
+        except RuntimeError:
+            pass
+    return kopie
+
+
 def _python_saehen(wurzel):
     ort = os.path.join(wurzel, "farb-os", "python")
     if os.path.exists(os.path.join(ort, "bin", "python3")):
@@ -77,9 +107,17 @@ mount -t sysfs none /sys 2>/dev/null
 mount -t devtmpfs none /dev 2>/dev/null
 mkdir -p /run /farb-os/home
 mount -t tmpfs none /run 2>/dev/null
+[ -d /lib/modules ] && for m in ext4 usb_storage uas virtio_pci virtio_blk; do modprobe $m 2>/dev/null; done
 BODEN=$(cat /proc/cmdline | tr ' ' '\\n' | grep '^boden=PARTUUID=' | cut -d= -f3)
-[ -n "$BODEN" ] && mount -t auto /dev/disk/by-partuuid/$BODEN /farb-os/home 2>/dev/null
+if [ -n "$BODEN" ]; then
+  sleep 3
+  mount -t auto /dev/disk/by-partuuid/$BODEN /farb-os/home 2>/dev/null
+  grep -q ' /farb-os/home ' /proc/mounts || for geraet in /dev/vda1 /dev/sda1 /dev/vdb1 /dev/sdb1 /dev/vda /dev/sda; do
+    [ -b "$geraet" ] && mount -t auto "$geraet" /farb-os/home 2>/dev/null && break
+  done
+fi
 grep -q ' /farb-os/home ' /proc/mounts || mount -t tmpfs none /farb-os/home 2>/dev/null
+echo "[INIT] BODEN: $(grep -m1 ' /farb-os/home ' /proc/mounts | cut -d' ' -f1)${BODEN:+ (Wunsch: $BODEN)}"
 [ -e /farb-os/python/bin/python3 ] && echo [INIT] BIN_OK || echo [INIT] BIN_FEHLT
 [ -e /lib64/ld-linux-x86-64.so.2 ] && echo [INIT] LDR_OK || echo [INIT] LDR_FEHLT
 [ -e /farb-os/os/farb_os.py ] && echo [INIT] WELT_OK || echo [INIT] WELT_FEHLT
@@ -160,8 +198,11 @@ def baue_initramfs(ordner=BOOT_ORDNER):
     busybox = shutil.which("busybox") or shutil.which("busybox.static")
     shutil.copy(busybox, os.path.join(wurzel, "bin", "busybox"))
     os.chmod(os.path.join(wurzel, "bin", "busybox"), 0o755)
-    for werkzeug in ("sh", "mount", "mkdir", "cat", "sleep", "sync", "tr", "grep", "cut"):
+    for werkzeug in ("sh", "mount", "mkdir", "cat", "sleep", "sync", "tr", "grep", "cut", "modprobe"):
         os.symlink("busybox", os.path.join(wurzel, "bin", werkzeug))
+
+    module = _module_saehen(wurzel, kernel)
+    print(f"[BOOTSATZ] Module gesaet: {module}")
 
     python_bin = _python_saehen(wurzel)
     kram = _kram_kopieren(wurzel, python_bin + "/bin/python3")
