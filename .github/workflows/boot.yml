@@ -1,0 +1,145 @@
+name: Bodenprobe
+
+on: [push, pull_request]
+
+jobs:
+  keim-atmet:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Die Welt danebenlegen (Colorverse)
+        uses: actions/checkout@v4
+        with:
+          repository: smori-start-seed/Colorverse
+          ref: vibe/farb-os-keim-54858e
+          path: Colorverse
+      - name: Werkzeuge des Bodens
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq cpio busybox-static xorriso grub-pc-bin qemu-system-x86 util-linux mtools >/dev/null
+      - name: Bootsatz bauen (mit Wurzelrechten - der Kernel braucht Leserecht)
+        run: sudo python3 Bootsatz.py
+      - name: Vom Wurzelbau lesen lassen (0600 vom Wurzelbau wird nicht geerbt)
+        run: sudo chmod -R a+rX bootsatz/
+      - name: Der Keim atmet in QEMU (Kernel + initramfs direkt)
+        run: |
+          ( exec timeout 300 qemu-system-x86_64 -cpu max -m 2048 -kernel bootsatz/vmlinuz -initrd bootsatz/initramfs.img.gz -append "console=ttyS0,115200" -nographic -no-reboot </dev/null > boot.log 2>&1; touch boot.fertig) &
+          QPID=$!
+          for t in $(seq 1 100); do
+            sleep 3
+            if grep -aq "Colorverse verwahrt" boot.log 2>/dev/null; then
+              kill $QPID 2>/dev/null || true
+              echo "DER KEIM ATMET - die Welt hat ihr Leben gefuehrt"
+              grep -aq "WELT_OK" boot.log || { echo "die Welt fehlte dem Boden (WELT-FEHLT)"; tail -40 boot.log; exit 1; }
+              grep -aq "BIN_OK" boot.log || { echo "Python fehlte dem Boden (BIN-FEHLT)"; tail -40 boot.log; exit 1; }
+              grep -a "Neugeboren\|Erinnerung geladen\|Erinnerung unbekannt\|KLANG\|DIALOG\|verwahrt" boot.log | head -20
+              exit 0
+            fi
+            [ -f boot.fertig ] && break
+          done
+          echo "die Welt verwahrte ihr Leben nicht (kein 'Colorverse verwahrt')"
+          tail -60 boot.log
+          exit 1
+
+  stock-atmet:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Die Welt danebenlegen (Colorverse)
+        uses: actions/checkout@v4
+        with:
+          repository: smori-start-seed/Colorverse
+          ref: vibe/farb-os-keim-54858e
+          path: Colorverse
+      - name: Werkzeuge des Bodens
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq cpio busybox-static xorriso grub-pc-bin qemu-system-x86 util-linux mtools >/dev/null
+      - name: USB-Medium bauen (mit Wurzelrechten - der Kernel braucht Leserecht)
+        run: sudo python3 Bootsatz.py --iso
+      - name: Vom Wurzelbau lesen lassen (0600 vom Wurzelbau wird nicht geerbt)
+        run: sudo chmod -R a+rX bootsatz/
+      - name: Der Stick atmet in QEMU (Medium als usb-storage angesteckt)
+        run: |
+          ( exec timeout 300 qemu-system-x86_64 -cpu max -m 2048 -drive if=none,id=stick,format=raw,readonly=on,file=bootsatz/bootsatz.iso -device qemu-xhci -device usb-storage,drive=stick -nographic -no-reboot </dev/null > stick.log 2>&1; touch stick.fertig) &
+          QPID=$!
+          for t in $(seq 1 100); do
+            sleep 3
+            if grep -aq "Colorverse verwahrt" stick.log 2>/dev/null; then
+              kill $QPID 2>/dev/null || true
+              echo "DER STICK ATMET - die Welt hat ihr Leben gefuehrt"
+              grep -aq "WELT_OK" stick.log || { echo "die Welt fehlte dem Boden (WELT-FEHLT)"; tail -40 stick.log; exit 1; }
+              grep -aq "BIN_OK" stick.log || { echo "Python fehlte dem Boden (BIN-FEHLT)"; tail -40 stick.log; exit 1; }
+              grep -a "Neugeboren\|Erinnerung geladen\|Erinnerung unbekannt\|KLANG\|DIALOG\|verwahrt" stick.log | head -20
+              exit 0
+            fi
+            [ -f stick.fertig ] && break
+          done
+          echo "die Welt verwahrte ihr Leben nicht (kein 'Colorverse verwahrt')"
+          tail -60 stick.log
+          exit 1
+
+  erinnerung-bleibt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Die Welt danebenlegen (Colorverse)
+        uses: actions/checkout@v4
+        with:
+          repository: smori-start-seed/Colorverse
+          ref: vibe/farb-os-keim-54858e
+          path: Colorverse
+      - name: Werkzeuge des Bodens
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq cpio busybox-static xorriso grub-pc-bin qemu-system-x86 util-linux mtools e2fsprogs kmod >/dev/null
+      - name: Bestaendigkeit fuer die Probe angeschaltet (PARTUUID nur hier, nicht im Lager)
+        run: |
+          sudo sed -i 's/BODEN_PARTUUID = None/BODEN_PARTUUID = "1a2b3c4d"/' config.py
+          grep BODEN_PARTUUID config.py
+      - name: USB-Medium bauen
+        run: |
+          sudo python3 Bootsatz.py --iso
+          sudo chmod -R a+rX bootsatz/
+      - name: Die Bodenplatte formen (ext4, ganzer Datentraeger)
+        run: |
+          truncate -s 1G boden_platte.raw
+          sudo mkfs.ext4 -F -L ABRAXOS boden_platte.raw
+      - name: Erstes Leben - geboren auf der Platte, verwahrt auf der Platte
+        run: |
+          ( exec timeout 300 qemu-system-x86_64 -cpu max -m 2048 -kernel bootsatz/vmlinuz -initrd bootsatz/initramfs.img.gz -append "console=ttyS0,115200 boden=PARTUUID=1a2b3c4d" -drive if=none,id=platte,format=raw,cache=writethrough,file=boden_platte.raw -device virtio-blk-pci,drive=platte -nographic -no-reboot </dev/null > leben1.log 2>&1; touch fertig1) &
+          QPID=$!
+          for t in $(seq 1 100); do
+            sleep 3
+            if grep -aq "Colorverse verwahrt" leben1.log 2>/dev/null; then
+              sleep 10
+              kill $QPID 2>/dev/null || true
+              echo "ERSTES LEBEN VOLLZogen"
+              grep -a "Neugeboren\\|Erinnerung geladen\\|BODEN:\\|verwahrt" leben1.log | head -10
+              exit 0
+            fi
+            [ -f fertig1 ] && break
+          done
+          echo "erstes Leben verwahrte nicht"
+          tail -60 leben1.log
+          exit 1
+      - name: Zweites Leben - die Erinnerung muss geladen werden
+        run: |
+          ( exec timeout 300 qemu-system-x86_64 -cpu max -m 2048 -kernel bootsatz/vmlinuz -initrd bootsatz/initramfs.img.gz -append "console=ttyS0,115200 boden=PARTUUID=1a2b3c4d" -drive if=none,id=platte,format=raw,cache=writethrough,file=boden_platte.raw -device virtio-blk-pci,drive=platte -nographic -no-reboot </dev/null > leben2.log 2>&1; touch fertig2) &
+          QPID=$!
+          for t in $(seq 1 100); do
+            sleep 3
+            if grep -aq "Erinnerung geladen" leben2.log 2>/dev/null; then
+              kill $QPID 2>/dev/null || true
+              echo "DIE ERINNERUNG LEBT - Bestaendigkeit bewiesen"
+              grep -a "Neugeboren\\|Erinnerung geladen\\|BODEN:\\|verwahrt" leben2.log | head -10
+              exit 0
+            fi
+            [ -f fertig2 ] && break
+          done
+          echo "die Platte hat sich nicht erinnert"
+          tail -60 leben2.log
+          exit 1
